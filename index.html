@@ -87,11 +87,11 @@
                 await pyodideModule.loadPackage(["micropip", "pandas"]);
                 
                 logToConsole("Installing text document and spreadsheet handlers (openpyxl, python-docx)...");
-                await pyodideModule.runPythonAsync(\`
+                await pyodideModule.runPythonAsync(`
                     import micropip
                     await micropip.install('openpyxl')
                     await micropip.install('python-docx')
-                \`);
+                `);
                 
                 logToConsole("Environment Ready. Pipeline automation workspace active!");
             } catch (err) {
@@ -117,7 +117,7 @@
 
         async function executeVerificationPipeline() {
             if (!pyodideModule) {
-                alert("Runtime system packages are still formatting in the sandbox. Give it a split second.");
+                alert("Runtime system packages are still processing in the sandbox. Please give it a brief moment.");
                 return;
             }
             
@@ -132,7 +132,7 @@
             const planFile = await getFileBytes("file_plan");
 
             if (!wabFile || !planFile) {
-                logToConsole("Validation Failed: Compile aborted. Both WAB (.docx) and Follow Up Plan (.xlsx) are strictly required.");
+                logToConsole("Validation Failed: Compile aborted. Both WAB (.docx) and Follow Up Plan (.xlsx) are required.");
                 alert("Please upload both required data files before compiling.");
                 return;
             }
@@ -140,18 +140,18 @@
             const today = new Date();
             const monthText = today.toLocaleDateString("en-US", { month: "long" });
             const yearText = today.getFullYear();
-            const computedDateText = \`\${monthText} \${yearText}\`;
+            const computedDateText = `${monthText} ${yearText}`;
             
             const dayNum = String(today.getDate()).padStart(2, '0');
             const monthNum = String(today.getMonth() + 1).padStart(2, '0');
-            const computedDateNumeric = \`\${dayNum}-\${monthNum}-\${yearText}\`;
+            const computedDateNumeric = `${dayNum}-${monthNum}-${yearText}`;
 
-            logToConsole(\`Date Pipeline Sync: Active target mapped to \${computedDateText}\`);
+            logToConsole(`Date Pipeline Sync: Active target mapped to ${computedDateText}`);
 
-            logToConsole("Pulling template document via repository tree check...");
+            logToConsole("Pulling template document via root fetch standard check...");
             try {
                 const response = await fetch("./verification%20template.docx");
-                if (!response.ok) throw new Error("Template access error 404. Make sure 'verification template.docx' is in your repo root.");
+                if (!response.ok) throw new Error("Template access error 404. Ensure 'verification template.docx' is in your repo root path.");
                 const templateBuffer = await response.arrayBuffer();
                 const templateData = new Uint8Array(templateBuffer);
                 
@@ -194,7 +194,7 @@ sys.stdout = BrowserLogRedirect()
 sys.stderr = BrowserLogRedirect()
 
 from docx import Document
-from docx.shared import Pt, RGBColor
+from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from openpyxl import load_workbook
 from docx.oxml import CT_Tbl, OxmlElement
@@ -293,22 +293,21 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
             
             system_affected = sys_abbr 
             asset_id = str(row[3]).strip() if row[3] is not None else ""
-            vuln_name = str(row[8]).strip() if row[8] is not None else ""    # Column I
-            threat_desc = str(row[9]).strip() if row[9] is not None else ""  # Column J
-            remediation = str(row[10]).strip() if row[10] is not None else "" # Column K
-            severity = str(row[11]).strip() if row[11] is not None else "Low" # Column L
+            vuln_name = str(row[8]).strip() if row[8] is not None else ""    # Column I: Risk Name
+            threat_desc = str(row[9]).strip() if row[9] is not None else ""  # Column J: Vulnerability
+            remediation = str(row[10]).strip() if row[10] is not None else "" # Column K: Action Plan
+            severity = str(row[11]).strip() if row[11] is not None else "Low" # Column L: Risk level
             
             sev_title = severity.strip().title()
             if "aoi" in severity.lower():
                 sev_title = "AOI"
 
-            # Mirror the Risk Level text into the bracket components exactly
             if sev_title == "AOI":
                 combined_risk_rating = "AOI"
             else:
                 combined_risk_rating = f"{sev_title} [{sev_title}, {sev_title}]"
 
-            # 7-column layout schemas array mappings cleanly matching template cells
+            # 7 columns layout completely omitting trailing total number summary lines
             item_entry = [system_affected, asset_id, vuln_name, threat_desc, combined_risk_rating, remediation, ""]
             
             sev_lower = severity.lower()
@@ -325,7 +324,7 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
                 a_rows.append(item_entry)
                 
     except Exception as e:
-        print(f"Telemetry warning (Excel Plan Parser): {str(e)}")
+        print(f"Telemetry warning (Excel Parser): {str(e)}")
 
     return {
         "system_description": system_description_text,
@@ -435,7 +434,6 @@ def generate_verification_report(telemetry, template_path, output_filename):
 
     has_populated_section_9 = False
 
-    # Sweep Paragraph Framework Matrix Nodes
     for p_idx, p in enumerate(list(doc.paragraphs)):
         full_p_text = "".join(run.text for run in p.runs)
         normalized_p_text = full_p_text.replace('\\n', ' ').strip()
@@ -489,7 +487,6 @@ def generate_verification_report(telemetry, template_path, output_filename):
                 target_table_idx = tbl_index_map[current_node]
                 target_table = doc.tables[target_table_idx]
                 
-                # Append data findings row slots sequentially (Excluding any trailing metric total injection codes)
                 for row_item in target_source:
                     new_row = target_table.add_row()
                     for cell_idx, val in enumerate(row_item):
@@ -499,7 +496,6 @@ def generate_verification_report(telemetry, template_path, output_filename):
         else:
             replace_text_in_paragraph(p, replacements)
 
-    # Sweep and explicitly overwrite Table 1 Total summary block metrics with paragraph alignment centering
     for table_idx, table in enumerate(doc.tables):
         if len(table.rows) == 0 or len(table.rows[0].cells) == 0: continue
         first_row_text = "".join(cell.text.lower() for cell in table.rows[0].cells)
@@ -509,7 +505,7 @@ def generate_verification_report(telemetry, template_path, output_filename):
             if "total number of rectifications" in first_cell_clean and len(row.cells) >= 6:
                 tot_items = telemetry["high"] + telemetry["medium"] + telemetry["low"] + telemetry["aoi"]
                 
-                # Apply centered styling layout variables strictly across metric containers
+                # Apply perfectly centered numerical injection variables 
                 apply_text_styling_and_borders(row.cells[1], str(tot_items), center=True)
                 apply_text_styling_and_borders(row.cells[2], str(telemetry["high"]), center=True)
                 apply_text_styling_and_borders(row.cells[3], str(telemetry["medium"]), center=True)
