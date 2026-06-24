@@ -162,7 +162,7 @@
                 return;
             }
 
-            try { pyodideModule.FS.unlink(wabFile.name); } catch(e) {}
+            try { pyodideModule.FS.unlink(wabFile.Part.name); } catch(e) {}
             pyodideModule.FS.writeFile(wabFile.name, wabFile.data);
 
             try { pyodideModule.FS.unlink(planFile.name); } catch(e) {}
@@ -217,6 +217,14 @@ def insert_paragraph_after(paragraph, text, style=None):
     p_element.addnext(new_p._p)
     return new_p
 
+def map_risk_metric_to_text(value):
+    val_str = str(value).strip().lower()
+    if val_str in ['1', 'low']: return "Low"
+    if val_str in ['2', 'medium']: return "Medium"
+    if val_str in ['3', 'high']: return "High"
+    if val_str == 'aoi': return "AOI"
+    return "Low"
+
 def apply_text_styling_and_borders(cell, text, is_header=False):
     cell.text = ""
     p = cell.paragraphs[0]
@@ -226,7 +234,6 @@ def apply_text_styling_and_borders(cell, text, is_header=False):
     if is_header:
         run.bold = True
         
-    # Programmatic XML Injector for adding borders to empty table slots
     tcPr = cell._tc.get_or_add_tcPr()
     tcBorders = OxmlElement('w:tcBorders')
     for border_name in ['top', 'left', 'bottom', 'right']:
@@ -278,7 +285,6 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
     except Exception as e:
         print(f"Telemetry warning (WAB): {str(e)}")
 
-    # Extract Excel Data - Shifting Columns Left to Remove "Operation Security"
     high_count, med_count, low_count, aoi_count = 0, 0, 0, 0
     try:
         wb = load_workbook(xlsx_path, data_only=True)
@@ -302,11 +308,14 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
             if "aoi" in severity.lower():
                 sev_title = "AOI"
 
-            # Combine Risk Rating elements like in SRA Report Generator (e.g., "Low [Low, Low]")
-            combined_risk_rating = f"{sev_title} [{impact}, {likelihood}]"
-            impact_matrix_display = f"[{impact}, {likelihood}]"
+            txt_impact = map_risk_metric_to_text(impact)
+            txt_likelihood = map_risk_metric_to_text(likelihood)
+
+            # Combined SRA Risk Layout Format
+            combined_risk_rating = f"{sev_title} [{txt_impact}, {txt_likelihood}]"
+            impact_matrix_display = f"[{txt_impact}, {txt_likelihood}]"
             
-            # Mapped to match shifted 8-column header scheme (No operation security column)
+            # Aligned explicitly across the 8 required columns (Omitting operation security domain completely)
             item_entry = [system_affected, asset_id, vuln_name, threat_desc, combined_risk_rating, impact_matrix_display, remediation, ""]
             
             sev_lower = severity.lower()
@@ -429,7 +438,6 @@ def generate_verification_report(telemetry, template_path, output_filename):
 
     has_populated_section_9 = False
 
-    # Sweep Paragraph Framework Matrix Nodes
     for p_idx, p in enumerate(list(doc.paragraphs)):
         full_p_text = "".join(run.text for run in p.runs)
         normalized_p_text = full_p_text.replace('\\n', ' ').strip()
@@ -487,18 +495,10 @@ def generate_verification_report(telemetry, template_path, output_filename):
                     new_row = target_table.add_row()
                     for cell_idx, val in enumerate(row_item):
                         if cell_idx < len(new_row.cells):
-                            # Set size 10 styling and crisp grid line borders
                             apply_text_styling_and_borders(new_row.cells[cell_idx], str(val))
             p.text = "" 
         else:
             replace_text_in_paragraph(p, replacements)
-
-    # Sweep Section Headers, Footers & Summary Tables
-    for section in doc.sections:
-        for header_p in section.header.paragraphs:
-            replace_text_in_paragraph(header_p, replacements)
-        for footer_p in section.footer.paragraphs:
-            replace_text_in_paragraph(footer_p, replacements)
 
     for table_idx, table in enumerate(doc.tables):
         if len(table.rows) == 0 or len(table.rows[0].cells) == 0: continue
