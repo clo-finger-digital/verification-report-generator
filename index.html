@@ -217,14 +217,6 @@ def insert_paragraph_after(paragraph, text, style=None):
     p_element.addnext(new_p._p)
     return new_p
 
-def map_risk_metric_to_text(value):
-    val_str = str(value).strip().lower()
-    if val_str in ['1', 'low']: return "Low"
-    if val_str in ['2', 'medium']: return "Medium"
-    if val_str in ['3', 'high']: return "High"
-    if val_str == 'aoi': return "AOI"
-    return "Low"
-
 def apply_text_styling_and_borders(cell, text, is_header=False):
     cell.text = ""
     p = cell.paragraphs[0]
@@ -303,23 +295,16 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
             remediation = str(row[10]).strip() if row[10] is not None else "" # Column K
             severity = str(row[11]).strip() if row[11] is not None else "Low" # Column L
             
-            impact = str(row[12]).strip() if row[12] is not None else "Low"    # Column M
-            likelihood = str(row[13]).strip() if row[13] is not None else "Low"# Column N
-            
             sev_title = severity.strip().title()
             if "aoi" in severity.lower():
                 sev_title = "AOI"
 
-            txt_impact = map_risk_metric_to_text(impact)
-            txt_likelihood = map_risk_metric_to_text(likelihood)
-
-            # Combined risk rating formatting: Low [Low, Low]
+            # Risk level mirrored directly into the bracket components instead of using metric indexes
             if sev_title == "AOI":
                 combined_risk_rating = "AOI"
             else:
-                combined_risk_rating = f"{sev_title} [{txt_impact}, {txt_likelihood}]"
+                combined_risk_rating = f"{sev_title} [{sev_title}, {sev_title}]"
 
-            # 7-column scheme sequence completely omitting extra or split matrix cell values
             item_entry = [system_affected, asset_id, vuln_name, threat_desc, combined_risk_rating, remediation, ""]
             
             sev_lower = severity.lower()
@@ -507,7 +492,7 @@ def generate_verification_report(telemetry, template_path, output_filename):
                         if cell_idx < len(new_row.cells):
                             apply_text_styling_and_borders(new_row.cells[cell_idx], str(val))
                             
-                # Dynamic row injector for table specific summaries
+                # Dynamic row injector summary calculation values
                 total_sum = sum(target_counts.values())
                 metric_row = target_table.add_row()
                 
@@ -524,13 +509,12 @@ def generate_verification_report(telemetry, template_path, output_filename):
         else:
             replace_text_in_paragraph(p, replacements)
 
-    # Sweep and fill out global quantitative summary structures
+    # Sweep and fill out Table 1 Summary row fields cleanly
     for table_idx, table in enumerate(doc.tables):
         if len(table.rows) == 0 or len(table.rows[0].cells) == 0: continue
         first_row_text = "".join(cell.text.lower() for cell in table.rows[0].cells)
         
         for row in table.rows:
-            # Overwrite Table 1 Summary row elements correctly
             first_cell_clean = row.cells[0].text.strip().lower()
             if "total number of rectifications" in first_cell_clean and len(row.cells) >= 6:
                 tot_items = telemetry["high"] + telemetry["medium"] + telemetry["low"] + telemetry["aoi"]
@@ -539,6 +523,13 @@ def generate_verification_report(telemetry, template_path, output_filename):
                 row.cells[3].text = str(telemetry["medium"])
                 row.cells[4].text = str(telemetry["low"])
                 row.cells[5].text = str(telemetry["aoi"])
+                
+                # Apply standard font layout patterns across summary components
+                for c_cell in row.cells:
+                    for cp in c_cell.paragraphs:
+                        for crun in cp.runs:
+                            crun.font.name = "Times New Roman"
+                            crun.font.size = Pt(10)
                 continue
 
             for cell in row.cells:
