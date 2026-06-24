@@ -132,7 +132,7 @@
             const planFile = await getFileBytes("file_plan");
 
             if (!wabFile || !planFile) {
-                logToConsole("Validation Failed: Compile aborted. Both WAB (.docx) and Follow Up Plan (.xlsx) are required.");
+                logToConsole("Validation Failed: Compile aborted. Both WAB (.docx) and Follow Up Plan (.xlsx) are strictly required.");
                 alert("Please upload both required data files before compiling.");
                 return;
             }
@@ -208,9 +208,10 @@ testee_abbr = JS_TESTEE_ABBREVIATION
 current_date_text = JS_COMPUTED_DATE_TEXT
 current_date_numeric = JS_COMPUTED_DATE_NUMERIC
 
-# Global Scope Helper Functions to avoid variable scoping visibility issues
+# Global Scope Helper Functions configured with precise OpenXML schema routes
 def insert_paragraph_after(paragraph, text, style=None):
-    new_p = paragraph._document.add_paragraph(style=style)
+    doc_instance = paragraph.part.document
+    new_p = doc_instance.add_paragraph(style=style)
     new_p.text = text
     p_element = paragraph._p
     p_element.addnext(new_p._p)
@@ -257,7 +258,7 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
     except Exception as e:
         print(f"Telemetry warning (WAB): {str(e)}")
 
-    # 2. Extract and Split Rows from Vulnerability Follow Up Plan Excel File Matrix
+    # 2. Extract Rows from Vulnerability Follow Up Plan Excel File Matrix
     high_count, med_count, low_count, aoi_count = 0, 0, 0, 0
     try:
         wb = load_workbook(xlsx_path, data_only=True)
