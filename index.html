@@ -87,11 +87,11 @@
                 await pyodideModule.loadPackage(["micropip", "pandas"]);
                 
                 logToConsole("Installing text document and spreadsheet handlers (openpyxl, python-docx)...");
-                await pyodideModule.runPythonAsync(`
+                await pyodideModule.runPythonAsync(\`
                     import micropip
                     await micropip.install('openpyxl')
                     await micropip.install('python-docx')
-                `);
+                \`);
                 
                 logToConsole("Environment Ready. Pipeline automation workspace active!");
             } catch (err) {
@@ -140,13 +140,13 @@
             const today = new Date();
             const monthText = today.toLocaleDateString("en-US", { month: "long" });
             const yearText = today.getFullYear();
-            const computedDateText = `${monthText} ${yearText}`;
+            const computedDateText = \`\${monthText} \${yearText}\`;
             
             const dayNum = String(today.getDate()).padStart(2, '0');
             const monthNum = String(today.getMonth() + 1).padStart(2, '0');
-            const computedDateNumeric = `${dayNum}-${monthNum}-${yearText}`;
+            const computedDateNumeric = \`\${dayNum}-\${monthNum}-\${yearText}\`;
 
-            logToConsole(`Date Pipeline Sync: Active target mapped to ${computedDateText}`);
+            logToConsole(\`Date Pipeline Sync: Active target mapped to \${computedDateText}\`);
 
             logToConsole("Pulling template document via repository tree check...");
             try {
@@ -195,6 +195,7 @@ sys.stderr = BrowserLogRedirect()
 
 from docx import Document
 from docx.shared import Pt, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from openpyxl import load_workbook
 from docx.oxml import CT_Tbl, OxmlElement
 from docx.oxml.ns import qn
@@ -217,9 +218,11 @@ def insert_paragraph_after(paragraph, text, style=None):
     p_element.addnext(new_p._p)
     return new_p
 
-def apply_text_styling_and_borders(cell, text, is_header=False):
+def apply_text_styling_and_borders(cell, text, is_header=False, center=False):
     cell.text = ""
     p = cell.paragraphs[0]
+    if center:
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = p.add_run(text)
     run.font.name = 'Times New Roman'
     run.font.size = Pt(10)
@@ -299,12 +302,13 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
             if "aoi" in severity.lower():
                 sev_title = "AOI"
 
-            # Risk level mirrored directly into the bracket components instead of using metric indexes
+            # Mirror the Risk Level text into the bracket components exactly
             if sev_title == "AOI":
                 combined_risk_rating = "AOI"
             else:
                 combined_risk_rating = f"{sev_title} [{sev_title}, {sev_title}]"
 
+            # 7-column layout schemas array mappings cleanly matching template cells
             item_entry = [system_affected, asset_id, vuln_name, threat_desc, combined_risk_rating, remediation, ""]
             
             sev_lower = severity.lower()
@@ -474,7 +478,6 @@ def generate_verification_report(telemetry, template_path, output_filename):
         elif "copy from follow up plan" in normalized_p_text:
             is_v_block = "all v numbered rows" in normalized_p_text.lower()
             target_source = telemetry["v_vulnerabilities"] if is_v_block else telemetry["a_vulnerabilities"]
-            target_counts = telemetry["v_counts"] if is_v_block else telemetry["a_counts"]
             
             p_element = p._p
             current_node = p_element.getnext()
@@ -486,30 +489,17 @@ def generate_verification_report(telemetry, template_path, output_filename):
                 target_table_idx = tbl_index_map[current_node]
                 target_table = doc.tables[target_table_idx]
                 
+                # Append data findings row slots sequentially (Excluding any trailing metric total injection codes)
                 for row_item in target_source:
                     new_row = target_table.add_row()
                     for cell_idx, val in enumerate(row_item):
                         if cell_idx < len(new_row.cells):
                             apply_text_styling_and_borders(new_row.cells[cell_idx], str(val))
-                            
-                # Dynamic row injector summary calculation values
-                total_sum = sum(target_counts.values())
-                metric_row = target_table.add_row()
-                
-                apply_text_styling_and_borders(metric_row.cells[0], "Total number of rectifications")
-                apply_text_styling_and_borders(metric_row.cells[1], str(total_sum))
-                apply_text_styling_and_borders(metric_row.cells[2], str(target_counts["high"]))
-                apply_text_styling_and_borders(metric_row.cells[3], str(target_counts["medium"]))
-                apply_text_styling_and_borders(metric_row.cells[4], str(target_counts["low"]))
-                apply_text_styling_and_borders(metric_row.cells[5], str(target_counts["aoi"]))
-                apply_text_styling_and_borders(metric_row.cells[6], "") 
-                if len(metric_row.cells) > 7:
-                    apply_text_styling_and_borders(metric_row.cells[7], "") 
             p.text = "" 
         else:
             replace_text_in_paragraph(p, replacements)
 
-    # Sweep and fill out Table 1 Summary row fields cleanly
+    # Sweep and explicitly overwrite Table 1 Total summary block metrics with paragraph alignment centering
     for table_idx, table in enumerate(doc.tables):
         if len(table.rows) == 0 or len(table.rows[0].cells) == 0: continue
         first_row_text = "".join(cell.text.lower() for cell in table.rows[0].cells)
@@ -518,18 +508,13 @@ def generate_verification_report(telemetry, template_path, output_filename):
             first_cell_clean = row.cells[0].text.strip().lower()
             if "total number of rectifications" in first_cell_clean and len(row.cells) >= 6:
                 tot_items = telemetry["high"] + telemetry["medium"] + telemetry["low"] + telemetry["aoi"]
-                row.cells[1].text = str(tot_items)
-                row.cells[2].text = str(telemetry["high"])
-                row.cells[3].text = str(telemetry["medium"])
-                row.cells[4].text = str(telemetry["low"])
-                row.cells[5].text = str(telemetry["aoi"])
                 
-                # Apply standard font layout patterns across summary components
-                for c_cell in row.cells:
-                    for cp in c_cell.paragraphs:
-                        for crun in cp.runs:
-                            crun.font.name = "Times New Roman"
-                            crun.font.size = Pt(10)
+                # Apply centered styling layout variables strictly across metric containers
+                apply_text_styling_and_borders(row.cells[1], str(tot_items), center=True)
+                apply_text_styling_and_borders(row.cells[2], str(telemetry["high"]), center=True)
+                apply_text_styling_and_borders(row.cells[3], str(telemetry["medium"]), center=True)
+                apply_text_styling_and_borders(row.cells[4], str(telemetry["low"]), center=True)
+                apply_text_styling_and_borders(row.cells[5], str(telemetry["aoi"]), center=True)
                 continue
 
             for cell in row.cells:
