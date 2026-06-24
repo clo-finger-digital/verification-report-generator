@@ -132,7 +132,7 @@
             const planFile = await getFileBytes("file_plan");
 
             if (!wabFile || !planFile) {
-                logToConsole("Validation Failed: Compile aborted. Both WAB (.docx) and Follow Up Plan (.xlsx) are strictly required.");
+                logToConsole("Validation Failed: Compile aborted. Both WAB (.docx) and Follow Up Plan (.xlsx) are required.");
                 alert("Please upload both required data files before compiling.");
                 return;
             }
@@ -208,6 +208,14 @@ testee_abbr = JS_TESTEE_ABBREVIATION
 current_date_text = JS_COMPUTED_DATE_TEXT
 current_date_numeric = JS_COMPUTED_DATE_NUMERIC
 
+# Global Scope Helper Functions to avoid variable scoping visibility issues
+def insert_paragraph_after(paragraph, text, style=None):
+    new_p = paragraph._document.add_paragraph(style=style)
+    new_p.text = text
+    p_element = paragraph._p
+    p_element.addnext(new_p._p)
+    return new_p
+
 def process_dynamic_telemetry(wab_path, xlsx_path):
     system_description_text = ""
     security_requirements = []
@@ -249,13 +257,13 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
     except Exception as e:
         print(f"Telemetry warning (WAB): {str(e)}")
 
-    # 2. Extract Rows from Vulnerability Follow Up Plan Excel File
+    # 2. Extract and Split Rows from Vulnerability Follow Up Plan Excel File Matrix
     high_count, med_count, low_count, aoi_count = 0, 0, 0, 0
     try:
         wb = load_workbook(xlsx_path, data_only=True)
         sheet = wb.active
         for row_idx, row in enumerate(sheet.iter_rows(values_only=True)):
-            if row_idx < 3 or row[2] is None: continue
+            if row_idx < 2 or row[2] is None: continue
             obs_num = str(row[2]).strip()
             if not (obs_num.upper().startswith("V") or obs_num.upper().startswith("A")): continue
             
@@ -385,11 +393,9 @@ def generate_verification_report(telemetry, template_path, output_filename):
                 for r in p.runs[1:]: r.text = ""
             else: p.text = full_text
 
-    # STEP 1: Find Pointer Paragraphs and Populated Neighbor Tables Dynamically
     body_elements = doc.element.body
     tbl_index_map = {}
     
-    # Pre-map actual table order relative to XML layout structure indexes
     current_tbl_count = 0
     for child in body_elements:
         if isinstance(child, CT_Tbl):
@@ -398,7 +404,7 @@ def generate_verification_report(telemetry, template_path, output_filename):
 
     has_populated_section_9 = False
 
-    # Sweep Paragraph Array Layout Elements Matrix
+    # Sweep Paragraph Framework Matrix Nodes
     for p_idx, p in enumerate(list(doc.paragraphs)):
         full_p_text = "".join(run.text for run in p.runs)
         normalized_p_text = full_p_text.replace('\\n', ' ').strip()
@@ -414,7 +420,6 @@ def generate_verification_report(telemetry, template_path, output_filename):
         if "9.securityrequirements" in lower_normalized or re.match(r'^\d+(\.\d+)*\s*', normalized_p_text) or p.style.name.startswith("Heading"):
             continue
 
-        # SECTION 9 PULL HANDLING
         if ("wabsection4.4" in lower_normalized or "wabsection9" in lower_normalized or "copyfromwab" in lower_normalized) or ("conductingthesecurityaudit" in lower_normalized):
             if not has_populated_section_9:
                 has_populated_section_9 = True
@@ -437,13 +442,9 @@ def generate_verification_report(telemetry, template_path, output_filename):
                         current_anchor = insert_paragraph_after(current_anchor, item, style='List Bullet')
             else:
                 p.text = ""
-                
         elif "copy from WAB, 4.1.1 Current Environment Description" in normalized_p_text or "copy from WAB, 9.1 System Description" in normalized_p_text:
             p.text = telemetry["system_description"]
-            
-        # SECTION 11 V / A POINTER INSERTION ENGINE
         elif "copy from follow up plan" in normalized_p_text:
-            # Look forward down the XML body element loop to intercept the exact companion table object
             is_v_block = "all v numbered rows" in normalized_p_text.lower()
             target_source = telemetry["v_vulnerabilities"] if is_v_block else telemetry["a_vulnerabilities"]
             
@@ -457,17 +458,16 @@ def generate_verification_report(telemetry, template_path, output_filename):
                 target_table_idx = tbl_index_map[current_node]
                 target_table = doc.tables[target_table_idx]
                 
-                # Dynamic row build loop without item indexing crashes
-                for idx, row_item in enumerate(target_source):
+                for row_item in target_source:
                     new_row = target_table.add_row()
                     for cell_idx, val in enumerate(row_item):
                         if cell_idx < len(new_row.cells):
                             new_row.cells[cell_idx].text = str(val)
-            p.text = "" # Erase pointer rows cleanly as requested
+            p.text = "" 
         else:
             replace_text_in_paragraph(p, replacements)
 
-    # STEP 2: Sweep Section Headers, Footers & Summary Tables Symmetrically
+    # Sweep Section Headers, Footers & Quantitative Tables
     for section in doc.sections:
         for header_p in section.header.paragraphs:
             replace_text_in_paragraph(header_p, replacements)
