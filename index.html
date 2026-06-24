@@ -83,17 +83,17 @@
                 logToConsole("Loading Pyodide Core Engine Environment...");
                 pyodideModule = await loadPyodide();
                 
-                logToConsole("Loading package manager configuration tools (micropip)...");
+                logToConsole("Loading package distribution manager tools (micropip)...");
                 await pyodideModule.loadPackage(["micropip", "pandas"]);
                 
-                logToConsole("Installing text document and spreadsheet libraries (openpyxl, python-docx)...");
+                logToConsole("Installing text document and spreadsheet handlers (openpyxl, python-docx)...");
                 await pyodideModule.runPythonAsync(`
                     import micropip
                     await micropip.install('openpyxl')
                     await micropip.install('python-docx')
                 `);
                 
-                logToConsole("Environment Ready. Pipeline automation active!");
+                logToConsole("Environment Ready. Pipeline automation workspace active!");
             } catch (err) {
                 logToConsole("Initialization Error: " + err.message);
             }
@@ -117,7 +117,7 @@
 
         async function executeVerificationPipeline() {
             if (!pyodideModule) {
-                alert("Runtime workspace environment is still booting dependencies. Please wait a brief moment.");
+                alert("Runtime system packages are still formatting in the sandbox. Give it a split second.");
                 return;
             }
             
@@ -132,7 +132,7 @@
             const planFile = await getFileBytes("file_plan");
 
             if (!wabFile || !planFile) {
-                logToConsole("Validation Failed: Compile aborted. Both WAB (.docx) and Follow Up Plan (.xlsx) are required.");
+                logToConsole("Validation Failed: Compile aborted. Both WAB (.docx) and Follow Up Plan (.xlsx) are strictly required.");
                 alert("Please upload both required data files before compiling.");
                 return;
             }
@@ -210,9 +210,10 @@ current_date_numeric = JS_COMPUTED_DATE_NUMERIC
 def process_dynamic_telemetry(wab_path, xlsx_path):
     system_description_text = ""
     security_requirements = []
-    vulnerabilities_list = []
+    v_rows = []
+    a_rows = []
     
-    # 1. Parse WAB Document Node Paragraph Context Dynamically
+    # 1. Parse WAB Document Context Dynamically
     try:
         wab_doc = Document(wab_path)
         capture_desc, capture_req = False, False
@@ -227,7 +228,6 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
             elif "4.1.2" in normalized_txt or "Project Management" in normalized_txt:
                 capture_desc = False
 
-            # Sliding window match for the precise Section 9 regulatory list block start
             if "thecontractorshallcomplywiththefollowinggovernmentregulations" in lower_clean:
                 capture_req = True
                 continue
@@ -248,30 +248,39 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
     except Exception as e:
         print(f"Telemetry warning (WAB): {str(e)}")
 
-    # 2. Transfuse Rows From Vulnerability Follow Up Plan Excel File Matrix
+    # 2. Extract and Split Rows from Vulnerability Follow Up Plan Excel File (V vs A)
     high_count, med_count, low_count, aoi_count = 0, 0, 0, 0
     try:
         wb = load_workbook(xlsx_path, data_only=True)
         sheet = wb.active
         for row_idx, row in enumerate(sheet.iter_rows(values_only=True)):
+            # Ensure row matches tracking signatures (checking column index 2 for V/A values)
             if row_idx == 0 or not row[0] or str(row[0]).strip().lower().startswith("system"): continue
+            obs_num = str(row[2]).strip() if row[2] is not None else ""
             
-            system_affected = str(row[0]).strip() if row[0] is not None else ""
-            asset_id = str(row[1]).strip() if row[1] is not None else ""
-            vuln_name = str(row[2]).strip() if row[2] is not None else ""
-            threat_desc = str(row[3]).strip() if row[3] is not None else ""
-            severity = str(row[4]).strip() if row[4] is not None else ""
-            impact_matrix = str(row[5]).strip() if row[5] is not None else ""
-            remediation = str(row[6]).strip() if row[6] is not None else ""
+            system_affected = str(row[3]).strip() if row[3] is not None else ""
+            asset_id = str(row[3]).strip() if row[3] is not None else "" # Fallback target allocation
+            vuln_name = str(row[7]).strip() if row[7] is not None else ""
+            threat_desc = str(row[8]).strip() if row[8] is not None else ""
+            remediation = str(row[9]).strip() if row[9] is not None else ""
+            severity = str(row[10]).strip() if row[10] is not None else ""
+            impact = str(row[11]).strip() if row[11] is not None else "Low"
+            likelihood = str(row[12]).strip() if row[12] is not None else "Low"
             
-            item_entry = [system_affected, asset_id, vuln_name, threat_desc, severity, impact_matrix, remediation]
-            vulnerabilities_list.append(item_entry)
+            impact_matrix = f"[{impact}, {likelihood}]"
+            item_entry = [system_affected, asset_id, vuln_name, threat_desc, severity, impact_matrix, remediation, ""]
             
             sev_lower = severity.lower()
             if "high" in sev_lower: high_count += 1
             elif "medium" in sev_lower: med_count += 1
             elif "low" in sev_lower: low_count += 1
             elif "aoi" in sev_lower: aoi_count += 1
+
+            if obs_num.upper().startswith("V"):
+                v_rows.append(item_entry)
+            elif obs_num.upper().startswith("A"):
+                a_rows.append(item_entry)
+                
     except Exception as e:
         print(f"Telemetry warning (Excel Plan): {str(e)}")
 
@@ -281,7 +290,8 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
     return {
         "system_description": system_description_text,
         "security_requirements": security_requirements,
-        "vulnerabilities": vulnerabilities_list,
+        "v_vulnerabilities": v_rows,
+        "a_vulnerabilities": a_rows,
         "high": high_count,
         "medium": med_count,
         "low": low_count,
@@ -381,7 +391,7 @@ def generate_verification_report(telemetry, template_path, output_filename):
 
     has_populated_section_9 = False
 
-    # Sweep Paragraph Framework Matrix Nodes
+    # Sweep Paragraph Matrix Nodes
     for p_idx, p in enumerate(list(doc.paragraphs)):
         full_p_text = "".join(run.text for run in p.runs)
         normalized_p_text = full_p_text.replace('\\n', ' ').strip()
@@ -397,7 +407,6 @@ def generate_verification_report(telemetry, template_path, output_filename):
         if "9.securityrequirements" in lower_normalized or re.match(r'^\d+(\.\d+)*\s*', normalized_p_text) or p.style.name.startswith("Heading"):
             continue
 
-        # SECTION 9 DYNAMIC PARSER GATE: Wipes template text placeholders and writes bullets strictly solo
         if ("wabsection4.4" in lower_normalized or "wabsection9" in lower_normalized or "copyfromwab" in lower_normalized) or ("conductingthesecurityaudit" in lower_normalized):
             if not has_populated_section_9:
                 has_populated_section_9 = True
@@ -408,26 +417,13 @@ def generate_verification_report(telemetry, template_path, output_filename):
                     for msg in telemetry["security_requirements"]:
                         current_anchor = insert_paragraph_after(current_anchor, msg, style='List Bullet')
                 else:
-                    # Robust execution fallback if WAB document structural bounds are missing
                     explicit_18_points = [
-                        "Baseline IT Security Policy;",
-                        "IT Security Guidelines;",
-                        "Practice Guide for Security Risk Assessment & Audit;",
-                        "Practice Guide for Information Security Incident Handling;",
-                        "Practice Guide for Penetration Testing;",
-                        "Practice Guide for Internet Gateway Security;",
-                        "Practice Guide for Website and Web Application Security;",
-                        "Practice Guide for Cloud Computing Security;",
-                        "Practice Guide for Mobile Security;",
-                        "Practice Guide for Security Log Management;",
-                        "ArchSD IT Security Policy;",
-                        "ArchSD General Circular No. 4/2008 - 'General Requirement on Software Asset Management';",
-                        "ArchSD General Circular No. 2/2015 - 'Use of Internet Services';",
-                        "End User Instructions on Information Technology Security;",
-                        "ArchSD IT Security Incident Handling Procedures;",
-                        "Security Checklist for iAM Smart-enabled Online Services;",
-                        "Security Testing Report Template for iAM Smart-enabled Online Services;",
-                        "The House Rules of iAM Smart."
+                        "Baseline IT Security Policy;", "IT Security Guidelines;", "Practice Guide for Security Risk Assessment & Audit;",
+                        "Practice Guide for Information Security Incident Handling;", "Practice Guide for Penetration Testing;", "Practice Guide for Internet Gateway Security;",
+                        "Practice Guide for Website and Web Application Security;", "Practice Guide for Cloud Computing Security;", "Practice Guide for Mobile Security;",
+                        "Practice Guide for Security Log Management;", "ArchSD IT Security Policy;", "ArchSD General Circular No. 4/2008 - 'General Requirement on Software Asset Management';",
+                        "ArchSD General Circular No. 2/2015 - 'Use of Internet Services';", "End User Instructions on Information Technology Security;", "ArchSD IT Security Incident Handling Procedures;",
+                        "Security Checklist for iAM Smart-enabled Online Services;", "Security Testing Report Template for iAM Smart-enabled Online Services;", "The House Rules of iAM Smart."
                     ]
                     for item in explicit_18_points:
                         current_anchor = insert_paragraph_after(current_anchor, item, style='List Bullet')
@@ -435,6 +431,9 @@ def generate_verification_report(telemetry, template_path, output_filename):
                 p.text = ""
         elif "copy from WAB, 4.1.1 Current Environment Description" in normalized_p_text or "copy from WAB, 9.1 System Description" in normalized_p_text:
             p.text = telemetry["system_description"]
+        # Explicit pointer deletion step matching user constraints
+        elif "copy from follow up plan" in normalized_p_text:
+            p.text = ""
         else:
             replace_text_in_paragraph(p, replacements)
 
@@ -445,7 +444,7 @@ def generate_verification_report(telemetry, template_path, output_filename):
         for footer_p in section.footer.paragraphs:
             replace_text_in_paragraph(footer_p, replacements)
 
-    # Sweep Table Layout Matrices Elements
+    # Sweep and Populate Table Layout Matrices Symmetrically
     for table_idx, table in enumerate(doc.tables):
         if len(table.rows) == 0 or len(table.rows[0].cells) == 0: continue
         first_row_text = "".join(cell.text.lower() for cell in table.rows[0].cells)
@@ -469,14 +468,14 @@ def generate_verification_report(telemetry, template_path, output_filename):
                 table.cell(2, 0).text = "0.2"; table.cell(2, 1).text = current_date_numeric; table.cell(2, 2).text = company_name; table.cell(2, 3).text = "Update Results"
             except Exception: pass
             
-        # SECTION 11 SUMMARY SRA MATRICES RESYNC
+        # SECTION 11 SUMMARY QUANTIFICATION MATRIX SYNC BLOCK
         elif "verification status" in first_row_text or "completed rectifications" in first_row_text:
             try:
-                table.cell(1, 1).text = "" # Completed status row clear
-                table.cell(2, 1).text = "" # In Progress status row clear
-                table.cell(3, 1).text = "" # Accepted status row clear
+                table.cell(1, 1).text = "" 
+                table.cell(2, 1).text = "" 
+                table.cell(3, 1).text = "" 
                 
-                tot_items = len(telemetry["vulnerabilities"])
+                tot_items = len(telemetry["v_vulnerabilities"]) + len(telemetry["a_vulnerabilities"])
                 table.cell(4, 1).text = str(tot_items)            
                 table.cell(4, 2).text = str(telemetry["high"])    
                 table.cell(4, 3).text = str(telemetry["medium"])  
@@ -484,10 +483,14 @@ def generate_verification_report(telemetry, template_path, output_filename):
                 table.cell(4, 5).text = str(telemetry["aoi"])     
             except Exception: pass
 
-        # Populates 11.1 technical findings tables symmetrically using spreadsheet rows
+        # Routing logic separating Vulnerability findings ("V") from Penetration Test findings ("A")
         elif "vulnerability" in first_row_text or "action taken" in first_row_text:
-            if len(telemetry["vulnerabilities"]) > 0:
-                for idx, item in enumerate(telemetry["vulnerabilities"]):
+            # Check table columns signature to distinguish target table assignments
+            is_v_table = "action taken" in first_row_text
+            target_source = telemetry["v_vulnerabilities"] if is_v_table else telemetry["a_vulnerabilities"]
+            
+            if len(target_source) > 0:
+                for idx, item in enumerate(target_source):
                     if idx == 0:
                         row_cells = table.rows[1].cells
                     else:
@@ -499,11 +502,11 @@ def generate_verification_report(telemetry, template_path, output_filename):
                     row_cells[3].text = item[3] if len(item) > 3 else "Threat details"
                     row_cells[4].text = item[4] if len(item) > 4 else "Low"
                     row_cells[5].text = item[5] if len(item) > 5 else "[Low, Low]"
-                    row_cells[6].text = item[6] if len(item) > 6 else "" # Action Taken / Recommended Safeguards
-                    row_cells[7].text = "" # Status column left empty as required
+                    row_cells[6].text = item[6] if len(item) > 6 else ""
+                    row_cells[7].text = "" 
 
     doc.save(output_filename)
-    print("Verification Report dynamic compilation complete.")
+    print("Verification Report compilation complete.")
 
 telemetry = process_dynamic_telemetry(JS_WAB_NAME, JS_PLAN_NAME)
 generate_verification_report(telemetry, "verification_template.docx", "Generated_Verification_Report_Final.docx")
