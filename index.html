@@ -132,7 +132,7 @@
             const planFile = await getFileBytes("file_plan");
 
             if (!wabFile || !planFile) {
-                logToConsole("Validation Failed: Compile aborted. Both WAB (.docx) and Follow Up Plan (.xlsx) are strictly required.");
+                logToConsole("Validation Failed: Compile aborted. Both WAB (.docx) and Follow Up Plan (.xlsx) are required.");
                 alert("Please upload both required data files before compiling.");
                 return;
             }
@@ -213,7 +213,7 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
     v_rows = []
     a_rows = []
     
-    # 1. Parse WAB Document Context Dynamically
+    # 1. Parse WAB Document Node Paragraph Context Dynamically
     try:
         wab_doc = Document(wab_path)
         capture_desc, capture_req = False, False
@@ -248,27 +248,34 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
     except Exception as e:
         print(f"Telemetry warning (WAB): {str(e)}")
 
-    # 2. Extract and Split Rows from Vulnerability Follow Up Plan Excel File (V vs A)
+    # 2. Extract and Split Rows from Vulnerability Follow Up Plan Excel File Matrix (Corrected Indices)
     high_count, med_count, low_count, aoi_count = 0, 0, 0, 0
     try:
         wb = load_workbook(xlsx_path, data_only=True)
         sheet = wb.active
         for row_idx, row in enumerate(sheet.iter_rows(values_only=True)):
-            # Ensure row matches tracking signatures (checking column index 2 for V/A values)
-            if row_idx == 0 or not row[0] or str(row[0]).strip().lower().startswith("system"): continue
-            obs_num = str(row[2]).strip() if row[2] is not None else ""
+            # Ensure row matches tracking signatures by validating Column C (index 2)
+            if row_idx < 3 or row[2] is None: continue
+            obs_num = str(row[2]).strip()
+            if not (obs_num.upper().startswith("V") or obs_num.upper().startswith("A")): continue
             
-            system_affected = str(row[3]).strip() if row[3] is not None else ""
-            asset_id = str(row[3]).strip() if row[3] is not None else "" # Fallback target allocation
+            system_affected = str(row[3]).strip() if row[3] is not None else sys_name
+            asset_id = str(row[3]).strip() if row[3] is not None else ""
             vuln_name = str(row[7]).strip() if row[7] is not None else ""
             threat_desc = str(row[8]).strip() if row[8] is not None else ""
             remediation = str(row[9]).strip() if row[9] is not None else ""
-            severity = str(row[10]).strip() if row[10] is not None else ""
-            impact = str(row[11]).strip() if row[11] is not None else "Low"
-            likelihood = str(row[12]).strip() if row[12] is not None else "Low"
+            severity = str(row[10]).strip() if row[10] is not None else "Low"
             
+            impact = str(row[11]).strip() if row[11] is not None else "2"
+            likelihood = str(row[12]).strip() if row[12] is not None else "2"
+            
+            # Map structural text matching rating behaviors
+            sev_title = severity.strip().title()
+            if "aoi" in severity.lower():
+                sev_title = "AOI"
+
             impact_matrix = f"[{impact}, {likelihood}]"
-            item_entry = [system_affected, asset_id, vuln_name, threat_desc, severity, impact_matrix, remediation, ""]
+            item_entry = [system_affected, asset_id, vuln_name, threat_desc, sev_title, impact_matrix, remediation, ""]
             
             sev_lower = severity.lower()
             if "high" in sev_lower: high_count += 1
@@ -282,10 +289,7 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
                 a_rows.append(item_entry)
                 
     except Exception as e:
-        print(f"Telemetry warning (Excel Plan): {str(e)}")
-
-    if not system_description_text:
-        system_description_text = "System configured to support processed data tracking flows securely."
+        print(f"Telemetry warning (Excel Plan Parser): {str(e)}")
 
     return {
         "system_description": system_description_text,
@@ -391,7 +395,7 @@ def generate_verification_report(telemetry, template_path, output_filename):
 
     has_populated_section_9 = False
 
-    # Sweep Paragraph Matrix Nodes
+    # Sweep Paragraph Framework Matrix Nodes
     for p_idx, p in enumerate(list(doc.paragraphs)):
         full_p_text = "".join(run.text for run in p.runs)
         normalized_p_text = full_p_text.replace('\\n', ' ').strip()
@@ -431,7 +435,6 @@ def generate_verification_report(telemetry, template_path, output_filename):
                 p.text = ""
         elif "copy from WAB, 4.1.1 Current Environment Description" in normalized_p_text or "copy from WAB, 9.1 System Description" in normalized_p_text:
             p.text = telemetry["system_description"]
-        # Explicit pointer deletion step matching user constraints
         elif "copy from follow up plan" in normalized_p_text:
             p.text = ""
         else:
@@ -444,7 +447,7 @@ def generate_verification_report(telemetry, template_path, output_filename):
         for footer_p in section.footer.paragraphs:
             replace_text_in_paragraph(footer_p, replacements)
 
-    # Sweep and Populate Table Layout Matrices Symmetrically
+    # Sweep Table Layout Matrices Elements
     for table_idx, table in enumerate(doc.tables):
         if len(table.rows) == 0 or len(table.rows[0].cells) == 0: continue
         first_row_text = "".join(cell.text.lower() for cell in table.rows[0].cells)
@@ -483,9 +486,8 @@ def generate_verification_report(telemetry, template_path, output_filename):
                 table.cell(4, 5).text = str(telemetry["aoi"])     
             except Exception: pass
 
-        # Routing logic separating Vulnerability findings ("V") from Penetration Test findings ("A")
+        # Routing findings to matching Tables via "action taken" column signatures
         elif "vulnerability" in first_row_text or "action taken" in first_row_text:
-            # Check table columns signature to distinguish target table assignments
             is_v_table = "action taken" in first_row_text
             target_source = telemetry["v_vulnerabilities"] if is_v_table else telemetry["a_vulnerabilities"]
             
