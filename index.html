@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verification Report Automation Hub</title>
+    <!-- Tailwind CSS for sleek production look -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Pyodide Core Engine for Client-Side Python Execution -->
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
@@ -15,6 +17,7 @@
         </header>
 
         <main class="space-y-6">
+            <!-- UI VARIABLES PANEL -->
             <section class="bg-slate-800 rounded-lg p-6 border border-slate-700 shadow-xl space-y-4">
                 <h2 class="text-xl font-bold text-white mb-4">Pipeline Injector Variables</h2>
                 
@@ -29,32 +32,35 @@
                     </div>
                     <div>
                         <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Information System Name</label>
-                        <input type="text" id="system_name" value="Special Education Management Information System" class="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+                        <input type="text" id="system_name" value="Digital Works Supervision System" class="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Information System Abbreviation</label>
-                        <input type="text" id="system_abbr" value="SEMIS" class="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+                        <input type="text" id="system_abbr" value="DWSS" class="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Testee Name</label>
-                        <input type="text" id="testee_name" value="Education Bureau" class="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+                        <input type="text" id="testee_name" value="Architectural Services Department" class="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Testee Abbreviation</label>
-                        <input type="text" id="testee_abbr" value="EDB" class="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+                        <input type="text" id="testee_abbr" value="ArchSD" class="w-full bg-slate-950 border border-slate-700 rounded p-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
                     </div>
                 </div>
             </section>
 
+            <!-- MANDATORY DATA SOURCE FILE UPLOADS -->
             <section class="bg-slate-800 rounded-lg p-6 border border-slate-700 shadow-xl space-y-4">
                 <h2 class="text-xl font-bold text-white mb-2">Data Source File Uploads</h2>
                 <p class="text-xs text-slate-400 mb-4">Note: The target Verification Template file is fetched dynamically from your repository tree route path (`./verification template.docx`).</p>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- WAB Document Upload Box (MANDATORY) -->
                     <div class="p-4 bg-slate-950 border border-dashed border-blue-500/50 rounded-lg">
                         <label class="block text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2">Work Assignment Brief (.docx) *Required</label>
                         <input type="file" id="file_wab" accept=".docx" class="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-900/50 file:text-blue-200 hover:file:bg-blue-800 cursor-pointer">
                     </div>
+                    <!-- Vulnerability Follow Up Plan Excel Upload Box (MANDATORY) -->
                     <div class="p-4 bg-slate-950 border border-dashed border-blue-500/50 rounded-lg">
                         <label class="block text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2">Vulnerability Follow Up Plan (.xlsx) *Required</label>
                         <input type="file" id="file_plan" accept=".xlsx" class="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-900/50 file:text-blue-200 hover:file:bg-blue-800 cursor-pointer">
@@ -68,6 +74,7 @@
                 </div>
             </section>
 
+            <!-- Console Log Window -->
             <section class="bg-slate-950 rounded-lg border border-slate-800 p-4 shadow-inner">
                 <span class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">System Execution Log</span>
                 <pre id="console_output" class="text-xs font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap max-h-64">System initialized. Waiting for files...</pre>
@@ -117,7 +124,7 @@
 
         async function executeVerificationPipeline() {
             if (!pyodideModule) {
-                alert("Runtime system packages are still processing in the sandbox. Please give it a brief moment.");
+                alert("Runtime system packages are still formatting in the sandbox. Give it a second.");
                 return;
             }
             
@@ -132,7 +139,7 @@
             const planFile = await getFileBytes("file_plan");
 
             if (!wabFile || !planFile) {
-                logToConsole("Validation Failed: Compile aborted. Both WAB (.docx) and Follow Up Plan (.xlsx) are required.");
+                logToConsole("Validation Failed: Compile aborted. Both WAB (.docx) and Follow Up Plan (.xlsx) are strictly required.");
                 alert("Please upload both required data files before compiling.");
                 return;
             }
@@ -148,10 +155,10 @@
 
             logToConsole(`Date Pipeline Sync: Active target mapped to ${computedDateText}`);
 
-            logToConsole("Pulling template document via root fetch standard check...");
+            logToConsole("Pulling template document via repository tree check...");
             try {
                 const response = await fetch("./verification%20template.docx");
-                if (!response.ok) throw new Error("Template access error 404. Ensure 'verification template.docx' is in your repo root path.");
+                if (!response.ok) throw new Error("Template access error 404. Make sure 'verification template.docx' is in your repo root.");
                 const templateBuffer = await response.arrayBuffer();
                 const templateData = new Uint8Array(templateBuffer);
                 
@@ -194,7 +201,7 @@ sys.stdout = BrowserLogRedirect()
 sys.stderr = BrowserLogRedirect()
 
 from docx import Document
-from docx.shared import Pt
+from docx.shared import Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from openpyxl import load_workbook
 from docx.oxml import CT_Tbl, OxmlElement
@@ -293,10 +300,10 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
             
             system_affected = sys_abbr 
             asset_id = str(row[3]).strip() if row[3] is not None else ""
-            vuln_name = str(row[8]).strip() if row[8] is not None else ""    # Column I: Risk Name
-            threat_desc = str(row[9]).strip() if row[9] is not None else ""  # Column J: Vulnerability
-            remediation = str(row[10]).strip() if row[10] is not None else "" # Column K: Action Plan
-            severity = str(row[11]).strip() if row[11] is not None else "Low" # Column L: Risk level
+            vuln_name = str(row[8]).strip() if row[8] is not None else ""    # Column I
+            threat_desc = str(row[9]).strip() if row[9] is not None else ""  # Column J
+            remediation = str(row[10]).strip() if row[10] is not None else "" # Column K
+            severity = str(row[11]).strip() if row[11] is not None else "Low" # Column L
             
             sev_title = severity.strip().title()
             if "aoi" in severity.lower():
@@ -307,7 +314,6 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
             else:
                 combined_risk_rating = f"{sev_title} [{sev_title}, {sev_title}]"
 
-            # 7 columns layout completely omitting trailing total number summary lines
             item_entry = [system_affected, asset_id, vuln_name, threat_desc, combined_risk_rating, remediation, ""]
             
             sev_lower = severity.lower()
@@ -324,7 +330,7 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
                 a_rows.append(item_entry)
                 
     except Exception as e:
-        print(f"Telemetry warning (Excel Parser): {str(e)}")
+        print(f"Telemetry warning (Excel Plan Parser): {str(e)}")
 
     return {
         "system_description": system_description_text,
@@ -368,6 +374,7 @@ def generate_verification_report(telemetry, template_path, output_filename):
 
     total_vuln_str = build_total_vulnerabilities_string(telemetry)
     risk_ratings_str = build_risk_ratings_string(telemetry)
+    grand_total_risk_number = str(telemetry["high"] + telemetry["medium"] + telemetry["low"] + telemetry["aoi"])
 
     replacements = [
         ("*company name* Limited", company_name),
@@ -386,10 +393,12 @@ def generate_verification_report(telemetry, template_path, output_filename):
         ("testee abbreviation", testee_abbr),
         ("TESTEE ABBREVIATION", testee_abbr),
         ("testee name", testee_name),
+        ("*testee name*", testee_name),
         ("May 2026", current_date_text),
         ("June 2026", current_date_text),
         ("*total vulnerabilities*", total_vuln_str),
-        ("*risk ratings*", risk_ratings_str)
+        ("*risk ratings*", risk_ratings_str),
+        ("*risk number*", grand_total_risk_number)
     ]
 
     def remove_asterisks_entirely(text):
@@ -405,23 +414,24 @@ def generate_verification_report(telemetry, template_path, output_filename):
         modified = False
         for k, val in lookup_tuples:
             cleaned_key = k.strip("*").strip()
-            if "risk number" in k.lower() or "*risk number*" in k.lower():
-                continue
             if k.lower() in full_text.lower() or cleaned_key.lower() in full_text.lower():
                 pattern = re.compile(re.escape(k), re.IGNORECASE)
                 full_text = pattern.sub(val, full_text)
                 modified = True
                 
-        if modified or ("*" in full_text and "*risk number*" not in full_text):
-            if "*risk number*" in full_text:
-                slices = full_text.split("*risk number*")
-                full_text = slices[0].replace("*", "") + "*risk number*" + slices[1].replace("*", "")
-            else:
-                full_text = remove_asterisks_entirely(full_text)
+        if modified or ("*" in full_text):
+            full_text = remove_asterisks_entirely(full_text)
             if p.runs:
                 p.runs[0].text = full_text
                 for r in p.runs[1:]: r.text = ""
             else: p.text = full_text
+
+    # TRAVERSE AND UPDATE RUN-LEVEL CONTENT INSIDE WORD SECTIONS HEADERS & FOOTERS XML SCOPES NATIVELY
+    for section in doc.sections:
+        for header_p in section.header.paragraphs:
+            replace_text_in_paragraph(header_p, replacements)
+        for footer_p in section.footer.paragraphs:
+            replace_text_in_paragraph(footer_p, replacements)
 
     body_elements = doc.element.body
     tbl_index_map = {}
@@ -434,6 +444,7 @@ def generate_verification_report(telemetry, template_path, output_filename):
 
     has_populated_section_9 = False
 
+    # Sweep Paragraph Framework Matrix Nodes
     for p_idx, p in enumerate(list(doc.paragraphs)):
         full_p_text = "".join(run.text for run in p.runs)
         normalized_p_text = full_p_text.replace('\\n', ' ').strip()
@@ -505,7 +516,6 @@ def generate_verification_report(telemetry, template_path, output_filename):
             if "total number of rectifications" in first_cell_clean and len(row.cells) >= 6:
                 tot_items = telemetry["high"] + telemetry["medium"] + telemetry["low"] + telemetry["aoi"]
                 
-                # Apply perfectly centered numerical injection variables 
                 apply_text_styling_and_borders(row.cells[1], str(tot_items), center=True)
                 apply_text_styling_and_borders(row.cells[2], str(telemetry["high"]), center=True)
                 apply_text_styling_and_borders(row.cells[3], str(telemetry["medium"]), center=True)
