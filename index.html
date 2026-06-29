@@ -55,12 +55,12 @@
                 <p class="text-xs text-slate-400 mb-4">Note: The target Verification Template file is fetched dynamically from your repository tree route path (`./verification template.docx`).</p>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- WAB Document Upload Box (MANDATORY) -->
+                    <!-- WAB Document Upload Box -->
                     <div class="p-4 bg-slate-950 border border-dashed border-blue-500/50 rounded-lg">
                         <label class="block text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2">Work Assignment Brief (.docx) *Required</label>
                         <input type="file" id="file_wab" accept=".docx" class="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-900/50 file:text-blue-200 hover:file:bg-blue-800 cursor-pointer">
                     </div>
-                    <!-- Vulnerability Follow Up Plan Excel Upload Box (MANDATORY) -->
+                    <!-- Vulnerability Follow Up Plan Excel Upload Box -->
                     <div class="p-4 bg-slate-950 border border-dashed border-blue-500/50 rounded-lg">
                         <label class="block text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2">Vulnerability Follow Up Plan (.xlsx) *Required</label>
                         <input type="file" id="file_plan" accept=".xlsx" class="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-900/50 file:text-blue-200 hover:file:bg-blue-800 cursor-pointer">
@@ -124,7 +124,7 @@
 
         async function executeVerificationPipeline() {
             if (!pyodideModule) {
-                alert("Runtime system packages are still formatting in the sandbox. Give it a second.");
+                alert("Runtime system packages are still formatting in the sandbox. Give it a split second.");
                 return;
             }
             
@@ -270,10 +270,11 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
             elif "4.1.2" in normalized_txt or "Project Management" in normalized_txt:
                 capture_desc = False
 
-            if "thecontractorshallcomplywiththefollowinggovernmentregulations" in lower_clean:
+            # DYNAMIC BASELINE TARGET RANGE ENGINE MATCH
+            if "form" in lower_clean and "securitybaseline" in lower_clean and "assessmentandaudit" in lower_clean:
                 capture_req = True
                 continue
-            elif capture_req and ("wherenecessary" in lower_clean or "4.4.2" in lower_clean or "gatherallrelevant" in lower_clean):
+            elif capture_req and "gather" in lower_clean:
                 capture_req = False
 
             if capture_desc and len(normalized_txt) > 2:
@@ -285,8 +286,12 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
                             system_description_text += "\\n" + normalized_txt
 
             if capture_req and len(normalized_txt) > 0:
-                if normalized_txt not in security_requirements and "government regulations" not in normalized_txt.lower():
-                    security_requirements.append(normalized_txt)
+                # Deduplicate and extract cleanly prior to boundary termination criteria
+                if normalized_txt not in security_requirements and "baseline" not in lower_clean and "form" not in lower_clean:
+                    # Clean Roman numerals if present
+                    cleaned_bullet = re.sub(r'^\\([ivxLCDM]+\\)\\s*', '', normalized_txt).strip()
+                    if cleaned_bullet:
+                        security_requirements.append(cleaned_bullet)
     except Exception as e:
         print(f"Telemetry warning (WAB): {str(e)}")
 
@@ -300,10 +305,10 @@ def process_dynamic_telemetry(wab_path, xlsx_path):
             
             system_affected = sys_abbr 
             asset_id = str(row[3]).strip() if row[3] is not None else ""
-            vuln_name = str(row[8]).strip() if row[8] is not None else ""    # Column I
-            threat_desc = str(row[9]).strip() if row[9] is not None else ""  # Column J
-            remediation = str(row[10]).strip() if row[10] is not None else "" # Column K
-            severity = str(row[11]).strip() if row[11] is not None else "Low" # Column L
+            vuln_name = str(row[8]).strip() if row[8] is not None else ""    
+            threat_desc = str(row[9]).strip() if row[9] is not None else ""  
+            remediation = str(row[10]).strip() if row[10] is not None else "" 
+            severity = str(row[11]).strip() if row[11] is not None else "Low" 
             
             sev_title = severity.strip().title()
             if "aoi" in severity.lower():
@@ -406,8 +411,9 @@ def generate_verification_report(telemetry, template_path, output_filename):
 
     def replace_text_in_paragraph(p, lookup_tuples):
         full_text = "".join(run.text for run in p.runs)
-        clean_stripped = full_text.strip()
+        if not full_text.strip(): return
         
+        clean_stripped = full_text.strip()
         if re.match(r'^\d+(\.\d+)*\s*', clean_stripped) or p.style.name.startswith("Heading"):
             return
 
@@ -426,7 +432,7 @@ def generate_verification_report(telemetry, template_path, output_filename):
                 for r in p.runs[1:]: r.text = ""
             else: p.text = full_text
 
-    # TRAVERSE AND UPDATE RUN-LEVEL CONTENT INSIDE WORD SECTIONS HEADERS & FOOTERS XML SCOPES NATIVELY
+    # Traverse section XML wrappers for global header tracking loops
     for section in doc.sections:
         for header_p in section.header.paragraphs:
             replace_text_in_paragraph(header_p, replacements)
@@ -470,15 +476,13 @@ def generate_verification_report(telemetry, template_path, output_filename):
                     for msg in telemetry["security_requirements"]:
                         current_anchor = insert_paragraph_after(current_anchor, msg, style='List Bullet')
                 else:
-                    explicit_18_points = [
+                    explicit_9_points = [
                         "Baseline IT Security Policy;", "IT Security Guidelines;", "Practice Guide for Security Risk Assessment & Audit;",
-                        "Practice Guide for Information Security Incident Handling;", "Practice Guide for Penetration Testing;", "Practice Guide for Internet Gateway Security;",
-                        "Practice Guide for Website and Web Application Security;", "Practice Guide for Cloud Computing Security;", "Practice Guide for Mobile Security;",
-                        "Practice Guide for Security Log Management;", "ArchSD IT Security Policy;", "ArchSD General Circular No. 4/2008 - 'General Requirement on Software Asset Management';",
-                        "ArchSD General Circular No. 2/2015 - 'Use of Internet Services';", "End User Instructions on Information Technology Security;", "ArchSD IT Security Incident Handling Procedures;",
-                        "Security Checklist for iAM Smart-enabled Online Services;", "Security Testing Report Template for iAM Smart-enabled Online Services;", "The House Rules of iAM Smart."
+                        "Practice Guide for Information Security Incident Handling;", "Practice Guide for Penetration Testing;", 
+                        "Practice Guide for Website and Web Application Security;", "Practice Guide for Cloud Computing Security;", 
+                        "Practice Guide for Mobile Security;", "Practice Guide for Internet of Things Security"
                     ]
-                    for item in explicit_18_points:
+                    for item in explicit_9_points:
                         current_anchor = insert_paragraph_after(current_anchor, item, style='List Bullet')
             else:
                 p.text = ""
